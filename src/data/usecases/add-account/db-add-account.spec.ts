@@ -1,28 +1,59 @@
 import { faker } from '@faker-js/faker'
 import { DbAddAccount } from './db-add-account'
 import { Encrypter } from '../../protocols/encrypter'
+import { AddAccountModel } from '../../../domain/usecases/add-account'
+import { AccountModel } from '../../../domain/models/account'
+import { AddAccountRepository } from '../../protocols/add-account-repository'
 
-interface SutTypes {
-  sut: DbAddAccount
-  encrypterStub: Encrypter
+const fakeData = {
+  id: faker.datatype.uuid(),
+  name: faker.internet.userName(),
+  email: faker.internet.email(),
+  password: faker.internet.password(),
+  hash: faker.random.word()
 }
+
+const { id, name, email, password, hash } = fakeData
 
 const makeEncrypter = (): Encrypter => {
   class EncrypterStub implements Encrypter {
     async encrypt (value: string): Promise<string> {
-      return await new Promise(resolve => { resolve(faker.random.word()) })
+      return await new Promise(resolve => { resolve(hash) })
     }
   }
   return new EncrypterStub()
 }
 
+const makeAddAccountRepository = (): AddAccountRepository => {
+  class AddAccountRepositoryStub implements AddAccountRepository {
+    async add (accountData: AddAccountModel): Promise<AccountModel> {
+      const fakeAccount = {
+        id,
+        name,
+        email,
+        password: hash
+      }
+      return await new Promise(resolve => { resolve(fakeAccount) })
+    }
+  }
+  return new AddAccountRepositoryStub()
+}
+
+interface SutTypes {
+  sut: DbAddAccount
+  encrypterStub: Encrypter
+  AddAccountRepositoryStub: AddAccountRepository
+}
+
 const makeSut = (): SutTypes => {
   const encrypterStub = makeEncrypter()
-  const sut = new DbAddAccount(encrypterStub)
+  const AddAccountRepositoryStub = makeAddAccountRepository()
+  const sut = new DbAddAccount(encrypterStub, AddAccountRepositoryStub)
 
   return {
     sut,
-    encrypterStub
+    encrypterStub,
+    AddAccountRepositoryStub
   }
 }
 
@@ -32,8 +63,8 @@ describe('DbAddAccount Usecase', () => {
     const encryptSpy = jest.spyOn(encrypterStub, 'encrypt')
     const password = faker.internet.password()
     const accountData = {
-      name: faker.internet.userName(),
-      email: faker.internet.email(),
+      name,
+      email,
       password
     }
     await sut.add(accountData)
@@ -45,11 +76,28 @@ describe('DbAddAccount Usecase', () => {
     jest.spyOn(encrypterStub, 'encrypt').mockReturnValueOnce(new Promise((resolve, reject) => { reject(new Error()) }))
     const password = faker.internet.password()
     const accountData = {
-      name: faker.internet.userName(),
-      email: faker.internet.email(),
+      name,
+      email,
       password
     }
     const promise = sut.add(accountData)
     await expect(promise).rejects.toThrow()
+  })
+
+  it('Should call AddAccountRepository with correct values', async () => {
+    const { sut, AddAccountRepositoryStub } = makeSut()
+    const addSpy = jest.spyOn(AddAccountRepositoryStub, 'add')
+
+    const accountData = {
+      name,
+      email,
+      password
+    }
+    await sut.add(accountData)
+    expect(addSpy).toHaveBeenCalledWith({
+      name,
+      email,
+      password: hash
+    })
   })
 })
