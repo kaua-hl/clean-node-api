@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker'
-import { EmailValidatorAdapter } from './email-validator'
+import { EmailValidatorAdapter } from './email-validator-adapter'
 import validator from 'validator'
 
 const makeSut = (): EmailValidatorAdapter => {
