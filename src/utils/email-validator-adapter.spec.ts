@@ -7,4 +7,10 @@ describe('EmailValidator Adapter', () => {
     const isValid = sut.isValid(faker.internet.userName())
     expect(isValid).toBe(false)
   })
+
+  it('Should return false if validator returns true', () => {
+    const sut = new EmailValidatorAdapter()
+    const isValid = sut.isValid(faker.internet.email())
+    expect(isValid).toBe(true)
+  })
 })
